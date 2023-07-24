@@ -146,6 +146,8 @@ def handle_popup(soup):
     # If the popup element is found, remove it from the soup
     if popup_element:
         popup_element.extract()
+    else:
+        print("Popup element not found. Continuing without handling the popup.")
 
 # Rest of the code remains the same
 # ...
