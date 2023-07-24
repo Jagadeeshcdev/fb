@@ -149,8 +149,10 @@ def handle_popup(soup):
     else:
         print("Popup element not found. Continuing without handling the popup.")
 
+def scrape_website(website, keywords, headers):
+    # Rest of the code remains the same
+
 # Rest of the code remains the same
-# ...
 
 if __name__ == "__main__":
     main()
