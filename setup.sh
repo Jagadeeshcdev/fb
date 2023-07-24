@@ -17,3 +17,5 @@ pip install BeautifulSoup
 pip install pandas
 pip install pd
 pip install time
+pip install io
+pip install StringIO
