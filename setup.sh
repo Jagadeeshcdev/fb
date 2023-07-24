@@ -19,3 +19,5 @@ pip install pd
 pip install time
 pip install io
 pip install StringIO
+pip install selenium 
+pip install webdriver
