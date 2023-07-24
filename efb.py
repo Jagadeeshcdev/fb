@@ -56,6 +56,12 @@ def load_websites_from_csv(file):
         websites.append(row[0])
     return websites
 
+def close_popup(soup):
+    # Identify and close the popup with class "x1b0d499" and aria-label "Close"
+    popup = soup.find('div', {'class': 'x1b0d499', 'aria-label': 'Close'})
+    if popup:
+        popup.extract()
+
 def scrape_emails(websites, progress_bar, progress_text, start_time):
     results = []
 
@@ -91,9 +97,7 @@ def scrape_website(website, keywords, headers):
         response.raise_for_status()
 
         soup = BeautifulSoup(response.content, 'html.parser')
-
-        # Handle the popup
-        handle_popup(soup)
+        close_popup(soup)  # Close the popup
 
         emails = scrape_email_addresses_from_page(soup)
 
@@ -103,88 +107,7 @@ def scrape_website(website, keywords, headers):
                 sub_response = requests.get(absolute_url, headers=headers, timeout=30)
                 sub_response.raise_for_status()
                 sub_soup = BeautifulSoup(sub_response.content, 'html.parser')
-
-                # Handle the popup in the sub-page
-                handle_popup(sub_soup)
-
-                sub_emails = scrape_email_addresses_from_page(sub_soup)
-                emails.update(sub_emails)
-
-        return website, emails
-
-    except requests.exceptions.RequestException as e:
-        return website, []
-
-def scrape_email_addresses_from_page(soup):
-    email_addresses = set()
-    email_regex = r'[\w.+-]+@[\w-]+\.[\w.-]+'
-    exclude_patterns = [
-        r'.*\.css',                     # Exclude CSS files
-        r'.*\.js',                      # Exclude JavaScript files
-        r'.*\.png',                     # Exclude PNG images
-        r'.*\.jpg',                     # Exclude JPG/JPEG images
-        r'.*\.jpeg',                    # Exclude JPG/JPEG images
-        r'.*\.gif',                     # Exclude GIF images
-        r'@[\d.]+$',                    # Exclude email addresses withnumbers (e.g., version numbers)
-        r'react-dom@[\d.]+',             # Exclude react-dom versions
-        r'core-js-bundle@[\d.]+',        # Exclude core-js-bundle versions
-        r'e9e9f0ab72ed4f4884e049aae0c4c669@sentry.websupport.sk',    # Exclude specific email addresses
-        r'search-insights@1\.3\.1',      # Exclude specific email addresses
-        r'intersection-observer-polyfill@0\.1\.0',  # Exclude specific email addresses
-    ]
-    for element in soup.find_all(string=re.compile(email_regex)):
-        matches = re.findall(email_regex, element)
-        for match in matches:
-            if not any(re.match(pattern, match) for pattern in exclude_patterns):
-                email_addresses.add(match)
-    return email_addresses
-
-def handle_popup(soup):
-    # Find the popup element based on its class name or ID
-    popup_element = soup.find("div", class_="x1b0d499 x1d69dk1")  # Replace with the actual class name
-
-    # If the popup element is found, click the close button if it exists
-    if popup_element:
-        close_button = popup_element.find("button", attrs={"aria-label": "Close"})
-        if close_button:
-            close_button.click()
-            time.sleep(1)  # Adjust the delay as needed to wait for the popup to close
-
-        popup_element.extract()
-    else:
-        print("Popup element not found. Continuing without handling the popup.")
-
-def scrape_website(website, keywords, headers):
-    try:
-        if not website.startswith("http"):
-            website = "https://" + website
-
-        response = requests.get(website, headers=headers, timeout=30)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.content, 'html.parser')
-
-        # Handle the popup
-        handle_popup(soup)
-
-        # Delay for a short period after the popup is closed
-        time.sleep(2)  # Adjust the delay as needed
-
-        emails = scrape_email_addresses_from_page(soup)
-
-        for link in soup.find_all('a', href=True):
-            absolute_url = urljoin(website, link['href'])
-            if any(keyword in absolute_url for keyword in keywords):
-                sub_response = requests.get(absolute_url, headers=headers, timeout=30)
-                sub_response.raise_for_status()
-                sub_soup = BeautifulSoup(sub_response.content, 'html.parser')
-
-                # Handle the popup in the sub-page
-                handle_popup(sub_soup)
-
-                # Delay for a short period after the sub-page popup is closed
-                time.sleep(2)  # Adjust the delay as needed
-
+                close_popup(sub_soup)  # Close the popup on subpages
                 sub_emails = scrape_email_addresses_from_page(sub_soup)
                 emails.update(sub_emails)
 
