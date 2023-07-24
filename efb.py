@@ -1,7 +1,7 @@
 import re
 import requests
 from bs4 import BeautifulSoup
-import pandas as pd
+import streamlit as st
 
 def scrape_email_addresses_from_page(soup):
     email_addresses = set()
@@ -42,15 +42,17 @@ def scrape_emails_from_facebook(url):
         return []
 
 def main():
+    st.title("Email Scraper")
+
     url = "https://www.facebook.com/kcmplumbingandheating/"
     emails = scrape_emails_from_facebook(url)
 
     if emails:
-        print("Scraped email addresses:")
+        st.write("Scraped email addresses:")
         for email in emails:
-            print(email)
+            st.write(email)
     else:
-        print("No email addresses found.")
+        st.write("No email addresses found.")
 
 if __name__ == "__main__":
     main()
