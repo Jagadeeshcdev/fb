@@ -23,3 +23,4 @@ pip install selenium
 pip install webdriver
 pip install selenium.webdriver.chrome.options 
 pip install Options
+pip install scrapy streamlit requests
