@@ -21,3 +21,5 @@ pip install io
 pip install StringIO
 pip install selenium 
 pip install webdriver
+pip install selenium.webdriver.chrome.options 
+pip install Options
