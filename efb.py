@@ -143,8 +143,13 @@ def handle_popup(soup):
     # Find the popup element based on its class name or ID
     popup_element = soup.find("div", class_="x1b0d499 x1d69dk1")  # Replace with the actual class name
 
-    # If the popup element is found, remove it from the soup
+    # If the popup element is found, click the close button if it exists
     if popup_element:
+        close_button = popup_element.find("button", attrs={"aria-label": "Close"})
+        if close_button:
+            close_button.click()
+            time.sleep(1)  # Adjust the delay as needed to wait for the popup to close
+
         popup_element.extract()
     else:
         print("Popup element not found. Continuing without handling the popup.")
@@ -158,6 +163,13 @@ def scrape_website(website, keywords, headers):
         response.raise_for_status()
 
         soup = BeautifulSoup(response.content, 'html.parser')
+
+        # Handle the popup
+        handle_popup(soup)
+
+        # Delay for a short period after the popup is closed
+        time.sleep(2)  # Adjust the delay as needed
+
         emails = scrape_email_addresses_from_page(soup)
 
         for link in soup.find_all('a', href=True):
@@ -166,6 +178,13 @@ def scrape_website(website, keywords, headers):
                 sub_response = requests.get(absolute_url, headers=headers, timeout=30)
                 sub_response.raise_for_status()
                 sub_soup = BeautifulSoup(sub_response.content, 'html.parser')
+
+                # Handle the popup in the sub-page
+                handle_popup(sub_soup)
+
+                # Delay for a short period after the sub-page popup is closed
+                time.sleep(2)  # Adjust the delay as needed
+
                 sub_emails = scrape_email_addresses_from_page(sub_soup)
                 emails.update(sub_emails)
 
