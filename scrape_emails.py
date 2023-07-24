@@ -1,6 +1,7 @@
 import scrapy
 from scrapy.crawler import CrawlerProcess
 import re
+import json
 
 class EmailSpider(scrapy.Spider):
     name = 'email_spider'
@@ -34,7 +35,8 @@ class EmailSpider(scrapy.Spider):
                 if not any(re.match(pattern, match) for pattern in exclude_patterns):
                     emails.add(match)
 
-        return {'emails': list(emails)}
+        with open('emails.json', 'w') as f:
+            json.dump(list(emails), f)
 
 def scrape_facebook_emails():
     process = CrawlerProcess()
