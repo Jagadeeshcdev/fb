@@ -150,9 +150,82 @@ def handle_popup(soup):
         print("Popup element not found. Continuing without handling the popup.")
 
 def scrape_website(website, keywords, headers):
-    # Rest of the code remains the same
+    try:
+        if not website.startswith("http"):
+            website = "https://" + website
 
-# Rest of the code remains the same
+        response = requests.get(website, headers=headers, timeout=30)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.content, 'html.parser')
+        emails = scrape_email_addresses_from_page(soup)
+
+        for link in soup.find_all('a', href=True):
+            absolute_url = urljoin(website, link['href'])
+            if any(keyword in absolute_url for keyword in keywords):
+                sub_response = requests.get(absolute_url, headers=headers, timeout=30)
+                sub_response.raise_for_status()
+                sub_soup = BeautifulSoup(sub_response.content, 'html.parser')
+                sub_emails = scrape_email_addresses_from_page(sub_soup)
+                emails.update(sub_emails)
+
+        return website, emails
+
+    except requests.exceptions.RequestException as e:
+        return website, []
+
+def scrape_email_addresses_from_page(soup):
+    email_addresses = set()
+    email_regex = r'[\w.+-]+@[\w-]+\.[\w.-]+'
+    exclude_patterns = [
+        r'.*\.css',                     # Exclude CSS files
+        r'.*\.js',                      # Exclude JavaScript files
+        r'.*\.png',                     # Exclude PNG images
+        r'.*\.jpg',                     # Exclude JPG/JPEG images
+        r'.*\.jpeg',                    # Exclude JPG/JPEG images
+        r'.*\.gif',                     # Exclude GIF images
+        r'@[\d.]+$',                    # Exclude email addresses withnumbers (e.g., version numbers)
+        r'react-dom@[\d.]+',             # Exclude react-dom versions
+        r'core-js-bundle@[\d.]+',        # Exclude core-js-bundle versions
+        r'e9e9f0ab72ed4f4884e049aae0c4c669@sentry.websupport.sk',    # Exclude specific email addresses
+        r'search-insights@1\.3\.1',      # Exclude specific email addresses
+        r'intersection-observer-polyfill@0\.1\.0',  # Exclude specific email addresses
+    ]
+    for element in soup.find_all(string=re.compile(email_regex)):
+        matches = re.findall(email_regex, element)
+        for match in matches:
+            if not any(re.match(pattern, match) for pattern in exclude_patterns):
+                email_addresses.add(match)
+    return email_addresses
+
+def display_results(results, start_time):
+    websites = []
+    emails = []
+
+    for result in results:
+        website = result['Website']
+        emails_list = result['Emails']
+        if emails_list:
+            websites.extend([website] * len(emails_list))
+            emails.extend(emails_list)
+
+    data = {'Website': websites, 'Emails': emails}
+    df = pd.DataFrame(data)
+
+    st.markdown("---")  # Add spacing
+
+    elapsed_time = time.time() - start_time
+    st.text(f"Scraping completed in {elapsed_time:.2f} seconds.")
+
+    # Download CSV
+    csv_data = df.to_csv(index=False)
+    csv_encoded = csv_data.encode()
+    b64_csv = b64encode(csv_encoded).decode()
+    href = f'<a href="data:file/csv;base64,{b64_csv}" download="emails.csv"><button style="background-color: white; color: green; padding: 0.5rem 1rem; border-radius: 4px; border: 2px solid green; cursor: pointer;">Download CSV</button></a>'
+    st.markdown(href, unsafe_allow_html=True)
+
+    # Display table
+    st.dataframe(df)
 
 if __name__ == "__main__":
     main()
