@@ -3,6 +3,12 @@ import requests
 from bs4 import BeautifulSoup
 import streamlit as st
 
+def close_popup(soup):
+    # Identify and close the popup with class "x1b0d499 x1d69dk1" and aria-label "Close"
+    popup = soup.find('div', {'class': 'x1b0d499 x1d69dk1', 'aria-label': 'Close'})
+    if popup:
+        popup.extract()
+
 def scrape_email_addresses_from_page(soup):
     email_addresses = set()
     email_regex = r'[\w.+-]+@[\w-]+\.[\w.-]+'
@@ -33,6 +39,8 @@ def scrape_emails_from_facebook(url):
         response.raise_for_status()
 
         soup = BeautifulSoup(response.content, 'html.parser')
+        close_popup(soup)  # Close the popup
+
         emails = scrape_email_addresses_from_page(soup)
 
         return emails
