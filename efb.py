@@ -1,120 +1,7 @@
-import csv
-import datetime
 import re
 import requests
 from bs4 import BeautifulSoup
-import streamlit as st
-from urllib.parse import urljoin
-from io import StringIO
 import pandas as pd
-import time
-from base64 import b64encode
-from concurrent.futures import ThreadPoolExecutor
-
-MAX_WEBSITES = 333
-
-def main():
-    st.title("Email Scraper")
-
-    # User input: Websites
-    st.text("Enter the URLs of the websites you want to scrape (one URL per line):")
-    websites = st.text_area("Websites", "example.com\nexample.org", height=200).strip().split('\n')
-
-    if len(websites) > MAX_WEBSITES:
-        st.error(f"Maximum limit exceeded! Please enter up to {MAX_WEBSITES} websites.")
-        return
-
-    st.markdown("---")  # Add spacing
-
-    # File upload: CSV
-    st.text("Upload a CSV file with websites (one URL per row):")
-    csv_file = st.file_uploader("Upload CSV file", type=["csv"])
-
-    if csv_file is not None:
-        websites.extend(load_websites_from_csv(csv_file))
-
-    if len(websites) > MAX_WEBSITES:
-        st.error(f"Maximum limit exceeded! Please enter up to {MAX_WEBSITES} websites.")
-        return
-
-    st.markdown("---")  # Add spacing
-
-    # Scrape emails
-    if st.button("Scrape Emails"):
-        unique_websites = list(set(websites))  # Remove duplicates
-        progress_bar = st.progress(0)
-        progress_text = st.empty()
-        start_time = time.time()
-        results = scrape_emails(unique_websites, progress_bar, progress_text, start_time)
-        display_results(results, start_time)
-
-def load_websites_from_csv(file):
-    websites = []
-    content = file.getvalue().decode("utf-8")
-    reader = csv.reader(StringIO(content))
-    for row in reader:
-        websites.append(row[0])
-    return websites
-
-def close_popup(soup):
-    # Identify and close the popup with class "x1b0d499" and aria-label "Close"
-    popup = soup.find('div', {'class': 'x1b0d499', 'aria-label': 'Close'})
-    if popup:
-        popup.extract()
-
-def scrape_emails(websites, progress_bar, progress_text, start_time):
-    results = []
-
-    keywords = ['contact', 'contact-us', 'get-in-touch', 'touch', 'about', 'about-us', 'help', 'support']
-
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36',
-    }
-
-    num_websites = len(websites)
-    with ThreadPoolExecutor() as executor:
-        futures = [executor.submit(scrape_website, website, keywords, headers) for website in websites]
-        for i, future in enumerate(futures):
-            website, emails = future.result()
-            results.append({'Website': website, 'Emails': emails})
-            progress = (i + 1) / num_websites
-            progress_bar.progress(progress)
-            progress_text.text(f"Progress: {i+1}/{num_websites} websites")
-
-            elapsed_time = time.time() - start_time
-            estimated_time = elapsed_time / (i + 1) * (num_websites - (i + 1))
-            progress_text.text(f"Progress: {i+1}/{num_websites} websites | Estimated Time: {estimated_time:.2f} seconds")
-            time.sleep(0.1)
-
-    return results
-
-def scrape_website(website, keywords, headers):
-    try:
-        if not website.startswith("http"):
-            website = "https://" + website
-
-        response = requests.get(website, headers=headers, timeout=30)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.content, 'html.parser')
-        close_popup(soup)  # Close the popup
-
-        emails = scrape_email_addresses_from_page(soup)
-
-        for link in soup.find_all('a', href=True):
-            absolute_url = urljoin(website, link['href'])
-            if any(keyword in absolute_url for keyword in keywords):
-                sub_response = requests.get(absolute_url, headers=headers, timeout=30)
-                sub_response.raise_for_status()
-                sub_soup = BeautifulSoup(sub_response.content, 'html.parser')
-                close_popup(sub_soup)  # Close the popup on subpages
-                sub_emails = scrape_email_addresses_from_page(sub_soup)
-                emails.update(sub_emails)
-
-        return website, emails
-
-    except requests.exceptions.RequestException as e:
-        return website, []
 
 def scrape_email_addresses_from_page(soup):
     email_addresses = set()
@@ -126,7 +13,7 @@ def scrape_email_addresses_from_page(soup):
         r'.*\.jpg',                     # Exclude JPG/JPEG images
         r'.*\.jpeg',                    # Exclude JPG/JPEG images
         r'.*\.gif',                     # Exclude GIF images
-        r'@[\d.]+$',                    # Exclude email addresses withnumbers (e.g., version numbers)
+        r'@[\d.]+$',                    # Exclude email addresses with numbers (e.g., version numbers)
         r'react-dom@[\d.]+',             # Exclude react-dom versions
         r'core-js-bundle@[\d.]+',        # Exclude core-js-bundle versions
         r'e9e9f0ab72ed4f4884e049aae0c4c669@sentry.websupport.sk',    # Exclude specific email addresses
@@ -140,34 +27,30 @@ def scrape_email_addresses_from_page(soup):
                 email_addresses.add(match)
     return email_addresses
 
-def display_results(results, start_time):
-    websites = []
-    emails = []
+def scrape_emails_from_facebook(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
 
-    for result in results:
-        website = result['Website']
-        emails_list = result['Emails']
-        if emails_list:
-            websites.extend([website] * len(emails_list))
-            emails.extend(emails_list)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        emails = scrape_email_addresses_from_page(soup)
 
-    data = {'Website': websites, 'Emails': emails}
-    df = pd.DataFrame(data)
+        return emails
 
-    st.markdown("---")  # Add spacing
+    except requests.exceptions.RequestException as e:
+        print(f"Error occurred while scraping {url}: {e}")
+        return []
 
-    elapsed_time = time.time() - start_time
-    st.text(f"Scraping completed in {elapsed_time:.2f} seconds.")
+def main():
+    url = "https://www.facebook.com/kcmplumbingandheating/"
+    emails = scrape_emails_from_facebook(url)
 
-    # Download CSV
-    csv_data = df.to_csv(index=False)
-    csv_encoded = csv_data.encode()
-    b64_csv = b64encode(csv_encoded).decode()
-    href = f'<a href="data:file/csv;base64,{b64_csv}" download="emails.csv"><button style="background-color: white; color: green; padding: 0.5rem 1rem; border-radius: 4px; border: 2px solid green; cursor: pointer;">Download CSV</button></a>'
-    st.markdown(href, unsafe_allow_html=True)
-
-    # Display table
-    st.dataframe(df)
+    if emails:
+        print("Scraped email addresses:")
+        for email in emails:
+            print(email)
+    else:
+        print("No email addresses found.")
 
 if __name__ == "__main__":
     main()
